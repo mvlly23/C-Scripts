@@ -10,9 +10,13 @@ int r2 = 13;
 int m = 5;
 uint32_t n = 0xe6546b64;
 
+uint32_t rotl(uint32_t k, int r){
+    return((k << r) | (k >> (32 - r)));
+}
+
 uint32_t scramble(uint32_t k){
     k *= c1;
-    k = (k << r1) | (k >> (32 - r1));
+    k = rotl(k, r1);
     k *= c2;
     return k;
 }
@@ -29,15 +33,22 @@ uint32_t murmur3(const void * key, size_t len, uint32_t seed){
     for(int i = -nblocks; i; i++){
         k = blocks[i];
         h ^= scramble(k);
-        h = (h << r2) | (h >> (32 - r2));
+        h = rotl(h, r2);
         h = (h*m) + n;
     }
 
     //Tail
-    for(size_t i = len & 3; i; i--){
-        k <<= 8;
-        k |= blocks[i - 1];
-    }
+    const uint8_t * tail = (const uint8_t*)(data + nblocks*4);
+
+    uint32_t k1 = 0;
+    
+    switch(len & 3){
+        case 3: k1 ^= tail[2] << 16;
+        case 2: k1 ^= tail[1] << 8;
+        case 1: k1 ^= tail[0];
+                k1 *= c1; k1 = rotl(k1,r1); k1 *= c2; h ^= k1;
+    };
+
 
     scramble(h);
     h ^= len;
